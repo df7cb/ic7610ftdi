@@ -44,6 +44,8 @@ $ ls -l iq.cs16
 $ inspectrum -r 1920000 iq.cs16 &
 ```
 
+![inspectrum view of captured I/Q data](ic7610-20m.png)
+
 ## Author
 
 Copyright (C) 2023 Christoph Berg DF7CB <cb@df7cb.de>
