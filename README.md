@@ -18,7 +18,7 @@ The program here writes raw I/Q data to a file in int16-int16 format.
 ## Usage
 
 * Write to file: `./ic7610ftdi filename.cs16`
-* Send to TCP socket: `./ic7610ftdi host port
+* Send to TCP socket: `./ic7610ftdi host port`
 
 ```
 $ lsusb | grep IC
@@ -54,6 +54,8 @@ $ inspectrum -r 1920000 iq.cs16 &
 The [`ic7610iq.grc`](ic7610iq.grc) flowgraph can receive data sent by `ic7610ftdi localhost 2000`.
 
 ![GNU Radio Flowchart Screenshot](ic7610iq.pdf)
+
+![GNU Radio Application Screenshot](ic7610iq.png)
 
 ## Author
 
