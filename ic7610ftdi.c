@@ -25,21 +25,24 @@
  */
 
 #include <fcntl.h>
+#include "ftd3xx.h"
+#include <netdb.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
-#include <signal.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "ftd3xx.h"
 
 #define CMD_OUT 0x02
 #define CMD_IN  0x82
 #define IQ_IN   0x84
 #define TIMEOUT 100 // ms
-#define READ_SIZE 1024 * 1024
+#define READ_SIZE 256 * 1024
 
 #define CMD_INDEX 4
 #define SUBCMD_INDEX 5
@@ -151,6 +154,60 @@ read_reply(FT_HANDLE handle)
 	return true;
 }
 
+int
+open_file(char *filename)
+{
+	int fd;
+	if ((fd = creat(filename, 0666)) < 0) {
+		perror("open");
+		return false;
+	}
+	printf("Writing to %s\n", filename);
+	return fd;
+}
+
+int
+tcp_connect(char *host, char *port)
+{
+	int s, sfd;
+	struct addrinfo  hints;
+	struct addrinfo  *result, *rp;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = 0;
+	hints.ai_protocol = 0;          /* Any protocol */
+
+	s = getaddrinfo(host, port, &hints, &result);
+	if (s != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+		exit(EXIT_FAILURE);
+	}
+
+	printf("Connecting to %s:%s\n", host, port);
+	for (rp = result; rp != NULL; rp = rp->ai_next) {
+		sfd = socket(rp->ai_family, rp->ai_socktype,
+				rp->ai_protocol);
+		if (sfd == -1)
+			continue;
+
+		if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
+			break;                  /* Success */
+
+		close(sfd);
+	}
+
+	freeaddrinfo(result);           /* No longer needed */
+
+	if (rp == NULL) {               /* No address succeeded */
+		fprintf(stderr, "Could not connect\n");
+		exit(EXIT_FAILURE);
+	}
+
+	return sfd;
+}
+
 void
 signal_handler()
 {
@@ -158,30 +215,23 @@ signal_handler()
 }
 
 int
-recv_iq(FT_HANDLE handle, char *filename)
+recv_iq(FT_HANDLE handle, int fd)
 {
 	uint8_t buf[READ_SIZE];
-	int fd, res;
+	int res;
 	DWORD count;
 	long long int bytes = 0;
 
 	signal(SIGINT, signal_handler);
 
-	if ((fd = creat(filename, 0666)) < 0) {
-		perror("open");
-		return false;
-	}
-
 	while (keep_going) {
 		if ((res = FT_ReadPipe(handle, IQ_IN, buf, sizeof(buf), &count, 0)) != FT_OK) {
 			printf("FT_ReadPipe: %d\n", res);
-			close(fd);
 			return false;
 		}
 
 		if ((res = write(fd, buf, count)) < 0) {
 			perror("write");
-			close(fd);
 			return false;
 		}
 
@@ -197,6 +247,7 @@ int main(int argc, char *argv[])
 {
 	long devnum = get_device_list();
 	FT_HANDLE handle;
+	int fd = 0;
 
 	FT_Create((PVOID) devnum, FT_OPEN_BY_INDEX, &handle);
 	if (!handle) {
@@ -206,22 +257,29 @@ int main(int argc, char *argv[])
 
 	FT_SetPipeTimeout(handle, CMD_IN, TIMEOUT);
 
-	uint8_t cmd[] = {0x1a, 0x0b}; // is IQ enabled
+	uint8_t cmd[] = {0x1a, 0x0b}; // is IQ enabled?
 	send_cmd(handle, cmd, sizeof(cmd));
 	read_reply(handle);
 
 	if (argc == 2) {
+		fd = open_file(argv[1]);
+	} else if (argc == 3) {
+		fd = tcp_connect(argv[1], argv[2]);
+	}
+
+	if (fd > 0) {
 		uint8_t cmd2[] = {0x1a, 0x0b, 0x01}; // enable IQ from Main VFO
 		send_cmd(handle, cmd2, sizeof(cmd2));
 		read_reply(handle);
 
-		recv_iq(handle, argv[1]);
-
-		uint8_t cmd3[] = {0x1a, 0x0b, 0x00}; // disable IQ
-		send_cmd(handle, cmd3, sizeof(cmd3));
-		read_reply(handle);
+		recv_iq(handle, fd);
 	}
 
+	uint8_t cmd3[] = {0x1a, 0x0b, 0x00}; // disable IQ
+	send_cmd(handle, cmd3, sizeof(cmd3));
+	read_reply(handle);
+
+	close(fd);
 	FT_AbortPipe(handle, CMD_OUT);
 	FT_AbortPipe(handle, CMD_IN);
 	FT_AbortPipe(handle, IQ_IN);

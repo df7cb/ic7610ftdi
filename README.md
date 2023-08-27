@@ -17,6 +17,9 @@ The program here writes raw I/Q data to a file in int16-int16 format.
 
 ## Usage
 
+* Write to file: `./ic7610ftdi filename.cs16`
+* Send to TCP socket: `./ic7610ftdi host port
+
 ```
 $ lsusb | grep IC
 Bus 002 Device 024: ID 0c26:0029 Prolific Technology Inc. IC-7610 SuperSpeed-FIFO Bridge
@@ -45,6 +48,12 @@ $ inspectrum -r 1920000 iq.cs16 &
 ```
 
 ![inspectrum view of captured I/Q data](ic7610-20m.png)
+
+## GNU Radio Flowgraph
+
+The `ic7610iq.pdf` flowgraph can receive data sent by `ic7610ftdi localhost 2000`.
+
+![GNU Radio Flowchart](ic7610iq.pdf)
 
 ## Author
 
