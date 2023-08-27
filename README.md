@@ -51,9 +51,9 @@ $ inspectrum -r 1920000 iq.cs16 &
 
 ## GNU Radio Flowgraph
 
-The `ic7610iq.pdf` flowgraph can receive data sent by `ic7610ftdi localhost 2000`.
+The [`ic7610iq.grc`](ic7610iq.grc) flowgraph can receive data sent by `ic7610ftdi localhost 2000`.
 
-![GNU Radio Flowchart](ic7610iq.pdf)
+![GNU Radio Flowchart Screenshot](ic7610iq.pdf)
 
 ## Author
 
