@@ -124,7 +124,15 @@ read_reply(FT_HANDLE handle)
 	int i, res;
 	DWORD count;
 
-	if ((res = FT_ReadPipe(handle, CMD_IN, buf, sizeof(buf), &count, 0)) != FT_OK) {
+	/*
+	 * libftd3xx >= 1.1 keeps reading until the buffer is full and ignores
+	 * FT_SetPipeTimeout, so pass the timeout here and accept a timeout
+	 * after a reply has arrived.
+	 */
+	res = FT_ReadPipe(handle, CMD_IN, buf, sizeof(buf), &count, TIMEOUT);
+	if (res == FT_TIMEOUT && count > 0)
+		res = FT_OK;
+	if (res != FT_OK) {
 		printf("FT_ReadPipe: %d\n", res);
 		res = FT_AbortPipe(handle, CMD_IN);
 		printf("FT_AbortPipe: %d\n", res);
@@ -209,7 +217,7 @@ tcp_connect(char *host, char *port)
 }
 
 void
-signal_handler()
+signal_handler(int signal)
 {
 	keep_going = false;
 }
